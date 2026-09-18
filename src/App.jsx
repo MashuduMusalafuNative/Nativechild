@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { cloneElement, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from './assets/images/logo.png';
 import whatsappButton from './assets/images/whatsapp-button.png';
@@ -220,11 +220,18 @@ function useMotionReveal() {
   return rootRef;
 }
 
-function HomePage({ pageContent }) {
+function HomePage({ pageContent, cart, onAddToCart, onUpdateQuantity }) {
   const [heroIndex, setHeroIndex] = useState(0);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [currency, setCurrency] = useState('ZAR');
+  const [cartNotice, setCartNotice] = useState('');
   const mainRef = useMotionReveal();
+
+  const addProduct = (product) => {
+    onAddToCart(product);
+    setCartNotice(`${product.name} has been added successfully.`);
+    window.setTimeout(() => setCartNotice(''), 3200);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -262,9 +269,9 @@ function HomePage({ pageContent }) {
             <a href="/frequently-asked-questions">FAQs</a>
             <a href="/my-account">My account</a>
             <a href="https://www.surveyfiesta.com/SurveyFiesta/Survey/NativeChildCustCareSurv" target="_blank" rel="noreferrer">Support</a>
-            <a aria-label="Cart with 0 items" className="cart-link" href="/cart">
+            <a aria-label={`Cart with ${cart.length} items`} className="cart-link" href="/cart">
               <span className="cart-link-icon" aria-hidden="true"><Icon name="cart" /></span>
-              <span className="cart-link-text">Cart</span>
+              <span className="cart-link-text">Cart ({cart.reduce((total, item) => total + item.quantity, 0)})</span>
             </a>
           </div>
         </div>
@@ -307,7 +314,7 @@ function HomePage({ pageContent }) {
       </header>
 
       <main className="site-main" ref={mainRef}>
-        {pageContent || <div className="page home-page">
+        {pageContent ? cloneElement(pageContent, { cart, onAddToCart: addProduct, onUpdateQuantity }) : <div className="page home-page">
         <section className="hero-section">
           <div className="hero-slides" aria-hidden="true">
             {heroSlides.map((slide, index) => (
@@ -403,7 +410,7 @@ function HomePage({ pageContent }) {
                     <h3>{product.name}</h3>
                     <div className="product-footer">
                       <span className="wc-price featured-price">{product.price}</span>
-                      <button type="button" className="wc-add-to-cart featured-add-to-cart">Add to Cart</button>
+                      <button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => addProduct(product)}>Add to Cart</button>
                     </div>
                   </div>
                 </article>
@@ -509,6 +516,8 @@ function HomePage({ pageContent }) {
         </section>
         </div>}
       </main>
+
+      {cartNotice && <div className="cart-success-notice" role="status">{cartNotice}</div>}
 
       <a className="whatsapp-float" href="https://api.whatsapp.com/send?text=Hi%20Nativechild" target="_blank" rel="noreferrer" aria-label="Chat with us on WhatsApp">
         <img src={whatsappButton} alt="WhatsApp" className="whatsapp-float-image" />
@@ -646,6 +655,29 @@ function CommunityInitiativePage() {
   return <main className="community-page"><div className="community-page-inner"><p className="eyebrow">Nativechild</p><h1>Community Initiatives</h1><div className="community-intro"><p>Nativechild is proud to support communities through meaningful outreach, education, empowerment and practical support. We believe healthy hair, healthy confidence and opportunity should be accessible to every woman and family we serve.</p><p>Through our community initiatives, we uplift local voices, inspire confidence and create opportunities for growth, care and connection.</p></div><div className="community-video-grid">{videos.map(([id, title]) => <a key={`${id}-${title}`} href={`https://www.youtube.com/watch?v=${id}`} target="_blank" rel="noreferrer"><img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt={title} /><span>{title}</span></a>)}</div></div></main>;
 }
 
+function FaqPage() {
+  const questions = ['Do I need to register to place an order?', 'How do I edit my account information?', 'How do I reset my password?', 'How do I create an order?', 'How do I make payment?', 'How do I track my order?', 'How long does delivery take?'];
+  return <main className="audited-page faq-live-page"><div className="audited-page-inner"><p className="eyebrow">Customer Support</p><h1>Frequently Asked Questions</h1><p className="audited-lead">Helpful answers about orders, delivery, payments and account support.</p><section><h2>Everything you need before placing an order</h2><p>We have grouped the most common customer questions below so you can get straight to checkout, account updates and delivery information.</p><div className="audited-faq-list">{questions.map((question) => <details key={question}><summary>{question}<span>+</span></summary><p>Contact our support team for help with this question and your order.</p></details>)}</div></section><section className="audited-support"><h2>Need more help?</h2><p>Reach out to our customer care team if you need help with a specific order, stockist question or account issue.</p><strong>Monday to Friday, 8:00 to 17:00</strong><a href="https://www.surveyfiesta.com/SurveyFiesta/Survey/NativeChildCustCareSurv" target="_blank" rel="noreferrer">Contact Support</a></section></div></main>;
+}
+
+function MyAccountPage() {
+  return <main className="my-account-live-page audited-page"><div className="my-account-live-layout"><section className="my-account-live-main"><h1>My Account</h1><div className="my-account-auth-grid"><form className="my-account-auth-card"><h2>Login</h2><label>Username or email address *<input type="text" /></label><label>Password *<input type="password" /></label><div className="my-account-login-actions"><button type="submit">Log in</button><label className="my-account-remember-me"><input type="checkbox" /> Remember me</label></div><p className="my-account-lost-link"><a href="/my-account/lost-password/">Lost your password?</a></p></form><form className="my-account-auth-card"><h2>Register</h2><label>Email address *<input type="email" /></label><label>Password *<input type="password" /></label><button type="submit">Register</button></form></div></section><aside className="my-account-live-sidebar"><h4>Product Search</h4><form className="my-account-search-row"><input type="search" placeholder="Search for:" /><button type="submit">Search</button></form><h4>Product Categories</h4><ul>{[['All Products','/shop'],['Haircare','/products/haircare'],['Combos','/products/combos'],['Bodycare','/products/bodycare'],['Accessories','/products/accessories']].map(([name,href])=><li key={name}><a href={href}>{name}</a></li>)}</ul></aside></div></main>;
+}
+
+function CartPage({ cart, onAddToCart, onUpdateQuantity }) {
+  return <main className="cart-live-page audited-page"><div className="cart-live-wrap"><h1>Cart</h1><p className="cart-live-faq-copy">Please read our <a href="/frequently-asked-questions">Frequently Asked Questions</a> for answers to general questions.</p>{cart.length === 0 ? <div className="cart-live-empty"><p>Your cart is currently empty.</p><a className="button cart-live-return" href="/shop">Return to shop</a></div> : <div className="cart-items-live">{cart.map((item) => <article key={item.name} className="cart-item-live"><img src={item.image} alt={item.name} /><div><h2>{item.name}</h2><p>{item.price}</p><div className="cart-item-controls"><button type="button" aria-label={`Decrease ${item.name} quantity`} onClick={() => onUpdateQuantity(item.name, item.quantity - 1)}>-</button><input aria-label={`Quantity for ${item.name}`} type="number" min="0" step="1" value={item.quantity} onChange={(event) => onUpdateQuantity(item.name, event.target.value)} /><button type="button" aria-label={`Increase ${item.name} quantity`} onClick={() => onAddToCart(item)}>+</button></div></div></article>)}<a className="button cart-live-return" href="/checkout">Proceed to checkout</a></div>}</div></main>;
+}
+
+function CheckoutPage() { return <main className="checkout-live-page audited-page"><div className="checkout-live-header"><h1>Checkout</h1><p>Securely complete your order and choose your preferred delivery details.</p></div><div className="wc-checkout-layout audited-checkout"><form className="wc-checkout-form"><h3>Billing details</h3>{['First name','Last name','Email address','Phone','Street address','Town / City','Postal code'].map(label=><label key={label}>{label}<input type={label==='Email address'?'email':'text'} /></label>)}<label>Order notes<textarea /></label><section className="wc-payment-section"><h3>Choose payment method</h3>{['PayFast','PayPal','EFT','ZAP'].map(name=><label className="wc-payment-option" key={name}><input type="radio" name="payment" /> <span><strong>{name}</strong><br />Secure payment and order confirmation.</span></label>)}</section><button className="button" type="submit">Place order</button></form><aside className="wc-order-review"><h3>Your order</h3><p>Product <strong>Subtotal</strong></p><p>Subtotal <strong>R 0.00</strong></p><p>Total <strong>R 0.00</strong></p></aside></div></main>; }
+
+function CareersPage() { return <main className="careers-live-page audited-page"><div className="careers-live-wrap"><header className="careers-live-header"><h4>Nativechild</h4><h1>Careers</h1></header><section className="careers-live-card"><h2>Want to work for us?</h2><p>Are you interested in working for NativeChild? Please complete the form below to submit your CV.</p><form className="careers-live-form"><label>Name &amp; Surname *<input type="text" /></label><label>Mobile Number *<input type="tel" /></label><label>Email Address *<input type="email" /></label><label className="careers-upload-row">Upload your CV *<input type="file" /><small>Accepted file types: pdf, word, Max. file size: 128 MB.</small></label><label>Message *<textarea /></label><button type="submit">Submit</button></form></section></div></main>; }
+
+function BlogPage() { return <main className="blog-live-page audited-page"><div className="blog-live-wrap"><header className="blog-live-header"><h4>Haircare and bodycare tips</h4><h1>Nativechild Blog</h1></header><article className="blog-live-post"><h2>Winter Hair Care Tips</h2><p className="blog-live-cats">Blog, Haircare Tips</p><p className="blog-live-excerpt">Winter is the coldest season of the year. Everything gets dry, leaves fall and so might your hair if not treated...</p><a className="blog-live-readmore" href="/blog">read more</a></article></div></main>; }
+
+function ContactPage() { return <main className="contact-live-page"><section className="contact-live-hero"><div className="contact-live-hero-overlay" /><div className="contact-live-hero-inner"><p className="contact-live-kicker">We'd love to hear from you</p><h1>Talk to Us</h1></div></section><div className="contact-live-content audited-page-inner"><div className="contact-live-grid"><div className="contact-live-stack"><section className="contact-live-card"><h2>FAQ’s</h2><p>Please read our <a href="/frequently-asked-questions">Frequently Asked Questions</a> for answers to general questions.</p></section><section className="contact-live-card"><h3>E-MAIL</h3><p>SALES ENQUIRIES: sales@nativechild.co</p><p>GENERAL ENQUIRIES: enquiries@nativechild.co</p><h3>OPERATING HOURS:</h3><p>Monday - Thursday 8:00am - 5pm<br />Friday 8am - 4:30pm<br />Weekend &amp; Public holidays - closed</p><h2>Find Us</h2><h3>ADDRESS</h3><p>Head Office<br />Unit 9, Bergzicht Office Park<br />3 Rooibok Street, Allensnek, 1709</p></section></div><form className="contact-live-form"><h2>Contact Us</h2>{['Name*','Email*','Subject'].map(label=><label key={label}>{label}<input type={label==='Email*'?'email':'text'} /></label>)}<label>Message<textarea /></label><button className="button" type="submit">Submit</button></form></div></div></main>; }
+
+function HairBeautyPage() { return <main className="hairbeauty-live-page audited-page"><div className="hairbeauty-live-header"><h1>Hair &amp; Beauty Bar</h1><p>Discover salon services, treatment options and styling support.</p></div><section className="hairbeauty-content audited-page-inner"><h2>Service Highlights</h2><ul><li>Wash, treat and style</li><li>Protective styling prep</li><li>Healthy scalp and moisture consultations</li><li>Retail product recommendations</li></ul><h2>Price Guide</h2><div className="price-table"><p>Basic wash and style: From R 250.00</p><p>Deep treatment and trim: From R 380.00</p><p>Protective style prep: From R 300.00</p></div><p>Final pricing may vary by hair length and service time.</p></section></main>; }
+
 const routePages = {
   '/about-us': { title: 'About Nativechild', intro: 'Naturally made haircare and bodycare created with Afro, kinky, coily and curly hair in mind.', sections: [['Our Story', 'Nativechild develops and locally manufactures natural-based products that help people care for their hair, skin and sense of self.'], ['Made With Care', 'Our formulas are plant based, kind to nature and designed to make everyday care feel simple, joyful and effective.']] },
   '/community-initiative': { title: 'Community Initiative', intro: 'Growing confidence, opportunity and care in the communities we call home.', sections: [['Making A Difference', 'Nativechild supports initiatives that help young people feel seen, supported and proud of who they are.']] },
@@ -656,7 +688,7 @@ const routePages = {
   '/hair-beauty-bar': { title: 'Hair & Beauty Bar', intro: 'Book an appointment for hair and beauty services with the Nativechild team.', sections: [['Appointments', 'Choose a salon and book your next service through our booking partners.']] },
 };
 
-function RoutePage({ title, intro, sections, products: pageProducts, shopPage = false, categoryPage = false }) {
+function RoutePage({ title, intro, sections, products: pageProducts, shopPage = false, categoryPage = false, onAddToCart }) {
   return (
     <div className={`page route-page${shopPage ? ' shop-page' : ''}${categoryPage ? ' category-products-page' : ''}`}>
       <div className="route-page-inner">
@@ -677,7 +709,7 @@ function RoutePage({ title, intro, sections, products: pageProducts, shopPage = 
               <img src={product.image} alt={product.name} className="product-image" />
               <div className="featured-product-card-body">
                 <h3>{product.name}</h3>
-                <div className="product-footer"><span className="wc-price featured-price">{product.price}</span><button type="button" className="wc-add-to-cart featured-add-to-cart">Add to Cart</button></div>
+                <div className="product-footer"><span className="wc-price featured-price">{product.price}</span><button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => onAddToCart(product)}>Add to Cart</button></div>
               </div>
             </article>
           ))}
@@ -693,21 +725,53 @@ function RoutePage({ title, intro, sections, products: pageProducts, shopPage = 
 
 function App() {
   const { pathname } = useLocation();
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(window.localStorage.getItem('nativechild-cart') || '[]'); } catch { return []; }
+  });
+  const addToCart = (product) => {
+    setCart((currentCart) => {
+      const existing = currentCart.find((item) => item.name === product.name);
+      const nextCart = existing
+        ? currentCart.map((item) => item.name === product.name ? { ...item, quantity: item.quantity + 1 } : item)
+        : [...currentCart, { ...product, quantity: 1 }];
+      window.localStorage.setItem('nativechild-cart', JSON.stringify(nextCart));
+      return nextCart;
+    });
+  };
+  const updateQuantity = (productName, quantity) => {
+    const nextQuantity = Math.max(0, Number.parseInt(quantity, 10) || 0);
+    setCart((currentCart) => {
+      const nextCart = currentCart
+        .map((item) => item.name === productName ? { ...item, quantity: nextQuantity } : item)
+        .filter((item) => item.quantity > 0);
+      window.localStorage.setItem('nativechild-cart', JSON.stringify(nextCart));
+      return nextCart;
+    });
+  };
+  const renderPage = (page) => <HomePage pageContent={page} cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} />;
   const categoryMatch = pathname.match(/^\/products\/(haircare|bodycare|combos|accessories)$/);
-  if (pathname === '/' || pathname === '') return <HomePage />;
-  if (pathname === '/kurl-care-guide') return <HomePage pageContent={<KurlCarePage />} />;
-  if (pathname === '/where-to-buy') return <HomePage pageContent={<WhereToBuyPage />} />;
-  if (pathname === '/videos') return <HomePage pageContent={<VideosPage />} />;
-  if (pathname === '/about-us') return <HomePage pageContent={<AboutPage />} />;
-  if (pathname === '/affiliate-registration') return <HomePage pageContent={<AffiliatePage />} />;
-  if (pathname === '/community-initiative') return <HomePage pageContent={<CommunityInitiativePage />} />;
+  if (pathname === '/' || pathname === '') return <HomePage cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} />;
+  if (pathname === '/kurl-care-guide') return renderPage(<KurlCarePage />);
+  if (pathname === '/where-to-buy') return renderPage(<WhereToBuyPage />);
+  if (pathname === '/videos') return renderPage(<VideosPage />);
+  if (pathname === '/about-us') return renderPage(<AboutPage />);
+  if (pathname === '/affiliate-registration') return renderPage(<AffiliatePage />);
+  if (pathname === '/community-initiative') return renderPage(<CommunityInitiativePage />);
+  if (pathname === '/frequently-asked-questions') return renderPage(<FaqPage />);
+  if (pathname === '/my-account') return renderPage(<MyAccountPage />);
+  if (pathname === '/cart') return renderPage(<CartPage />);
+  if (pathname === '/checkout') return renderPage(<CheckoutPage />);
+  if (pathname === '/careers') return renderPage(<CareersPage />);
+  if (pathname === '/blog') return renderPage(<BlogPage />);
+  if (pathname === '/contact-us') return renderPage(<ContactPage />);
+  if (pathname === '/hair-beauty-bar') return renderPage(<HairBeautyPage />);
   if (pathname === '/shop' || categoryMatch) {
     const category = categoryMatch?.[1];
     const title = category ? `${category[0].toUpperCase()}${category.slice(1)} Products` : 'Shop Nativechild';
-    return <HomePage pageContent={<RoutePage categoryPage={Boolean(category)} shopPage={pathname === '/shop'} title={title} intro={category === 'haircare' ? 'Our products are designed to assist hair growth, restore moisture, reduce breakage and provide the nourishment your hair needs to thrive.' : 'Explore natural-based haircare and bodycare made with care for you and the world around you.'} sections={[]} products={pathname === '/shop' ? shopProducts : category === 'haircare' ? haircareProducts : category === 'bodycare' ? products.slice(2) : products} />} />;
+    return renderPage(<RoutePage categoryPage={Boolean(category)} shopPage={pathname === '/shop'} title={title} intro={category === 'haircare' ? 'Our products are designed to assist hair growth, restore moisture, reduce breakage and provide the nourishment your hair needs to thrive.' : 'Explore natural-based haircare and bodycare made with care for you and the world around you.'} sections={[]} products={pathname === '/shop' ? shopProducts : category === 'haircare' ? haircareProducts : category === 'bodycare' ? products.slice(2) : products} />);
   }
   const page = routePages[pathname] || { title: 'Nativechild', intro: 'Natural-based haircare and bodycare for your everyday ritual.', sections: [['Page Not Found', 'The page you requested could not be found. Return home to continue exploring Nativechild.']] };
-  return <HomePage pageContent={<RoutePage {...page} />} />;
+  return renderPage(<RoutePage {...page} />);
 }
 
 export default App;
