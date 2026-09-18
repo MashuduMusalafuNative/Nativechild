@@ -410,7 +410,7 @@ function HomePage({ pageContent, cart, onAddToCart, onUpdateQuantity }) {
                     <h3>{product.name}</h3>
                     <div className="product-footer">
                       <span className="wc-price featured-price">{product.price}</span>
-                      <button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => addProduct(product)}>Add to Cart</button>
+                      <button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => addProduct(product)}>Add to Cart{cart.find((item) => item.name === product.name)?.quantity ? ` (${cart.find((item) => item.name === product.name).quantity})` : ''}</button>
                     </div>
                   </div>
                 </article>
@@ -711,7 +711,7 @@ const routePages = {
   '/hair-beauty-bar': { title: 'Hair & Beauty Bar', intro: 'Book an appointment for hair and beauty services with the Nativechild team.', sections: [['Appointments', 'Choose a salon and book your next service through our booking partners.']] },
 };
 
-function RoutePage({ title, intro, sections, products: pageProducts, shopPage = false, categoryPage = false, onAddToCart }) {
+function RoutePage({ title, intro, sections, products: pageProducts, shopPage = false, categoryPage = false, onAddToCart, cart = [] }) {
   return (
     <div className={`page route-page${shopPage ? ' shop-page' : ''}${categoryPage ? ' category-products-page' : ''}`}>
       <div className="route-page-inner">
@@ -732,7 +732,7 @@ function RoutePage({ title, intro, sections, products: pageProducts, shopPage = 
               <img src={product.image} alt={product.name} className="product-image" />
               <div className="featured-product-card-body">
                 <h3>{product.name}</h3>
-                <div className="product-footer"><span className="wc-price featured-price">{product.price}</span><button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => onAddToCart(product)}>Add to Cart</button></div>
+                <div className="product-footer"><span className="wc-price featured-price">{product.price}</span><button type="button" className="wc-add-to-cart featured-add-to-cart" onClick={() => onAddToCart(product)}>Add to Cart{cart.find((item) => item.name === product.name)?.quantity ? ` (${cart.find((item) => item.name === product.name).quantity})` : ''}</button></div>
               </div>
             </article>
           ))}
