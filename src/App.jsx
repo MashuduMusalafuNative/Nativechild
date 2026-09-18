@@ -220,7 +220,7 @@ function useMotionReveal() {
   return rootRef;
 }
 
-function HomePage({ pageContent, cart, onAddToCart, onUpdateQuantity }) {
+function HomePage({ pageContent, cart, onAddToCart, onUpdateQuantity, onCreateOrder }) {
   const [heroIndex, setHeroIndex] = useState(0);
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [currency, setCurrency] = useState('ZAR');
@@ -314,7 +314,7 @@ function HomePage({ pageContent, cart, onAddToCart, onUpdateQuantity }) {
       </header>
 
       <main className="site-main" ref={mainRef}>
-        {pageContent ? cloneElement(pageContent, { cart, onAddToCart: addProduct, onUpdateQuantity }) : <div className="page home-page">
+        {pageContent ? cloneElement(pageContent, { cart, onAddToCart: addProduct, onUpdateQuantity, onCreateOrder }) : <div className="page home-page">
         <section className="hero-section">
           <div className="hero-slides" aria-hidden="true">
             {heroSlides.map((slide, index) => (
@@ -668,7 +668,7 @@ function CartPage({ cart, onAddToCart, onUpdateQuantity }) {
   return <main className="cart-live-page audited-page"><div className="cart-live-wrap"><h1>Cart</h1><p className="cart-live-faq-copy">Please read our <a href="/frequently-asked-questions">Frequently Asked Questions</a> for answers to general questions.</p>{cart.length === 0 ? <div className="cart-live-empty"><p>Your cart is currently empty.</p><a className="button cart-live-return" href="/shop">Return to shop</a></div> : <div className="cart-items-live">{cart.map((item) => <article key={item.name} className="cart-item-live"><img src={item.image} alt={item.name} /><div><h2>{item.name}</h2><p>{item.price}</p><div className="cart-item-controls"><button type="button" aria-label={`Decrease ${item.name} quantity`} onClick={() => onUpdateQuantity(item.name, item.quantity - 1)}>-</button><input aria-label={`Quantity for ${item.name}`} type="number" min="0" step="1" value={item.quantity} onChange={(event) => onUpdateQuantity(item.name, event.target.value)} /><button type="button" aria-label={`Increase ${item.name} quantity`} onClick={() => onAddToCart(item)}>+</button></div></div></article>)}<a className="button cart-live-return" href="/checkout">Proceed to checkout</a></div>}</div></main>;
 }
 
-function CheckoutPage({ cart }) {
+function CheckoutPage({ cart, onCreateOrder }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '' });
   const [payment, setPayment] = useState('PayFast');
   const [error, setError] = useState('');
@@ -678,7 +678,8 @@ function CheckoutPage({ cart }) {
     setError('');
     if (payment !== 'PayFast') { setError('Only PayFast is configured for live payment right now.'); return; }
     try {
-      const response = await fetch('/api/payfast/create-payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, amount: total, email: form.email }) });
+      const order = onCreateOrder({ customer: form, items: cart, total });
+      const response = await fetch('/api/payfast/create-payment', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...form, amount: total, email: form.email, orderReference: order.id }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Unable to start PayFast checkout.');
       const paymentForm = document.createElement('form');
@@ -700,6 +701,111 @@ function BlogPage() { return <main className="blog-live-page audited-page"><div 
 function ContactPage() { return <main className="contact-live-page"><section className="contact-live-hero"><div className="contact-live-hero-overlay" /><div className="contact-live-hero-inner"><p className="contact-live-kicker">We'd love to hear from you</p><h1>Talk to Us</h1></div></section><div className="contact-live-content audited-page-inner"><div className="contact-live-grid"><div className="contact-live-stack"><section className="contact-live-card"><h2>FAQ’s</h2><p>Please read our <a href="/frequently-asked-questions">Frequently Asked Questions</a> for answers to general questions.</p></section><section className="contact-live-card"><h3>E-MAIL</h3><p>SALES ENQUIRIES: sales@nativechild.co</p><p>GENERAL ENQUIRIES: enquiries@nativechild.co</p><h3>OPERATING HOURS:</h3><p>Monday - Thursday 8:00am - 5pm<br />Friday 8am - 4:30pm<br />Weekend &amp; Public holidays - closed</p><h2>Find Us</h2><h3>ADDRESS</h3><p>Head Office<br />Unit 9, Bergzicht Office Park<br />3 Rooibok Street, Allensnek, 1709</p></section></div><form className="contact-live-form"><h2>Contact Us</h2>{['Name*','Email*','Subject'].map(label=><label key={label}>{label}<input type={label==='Email*'?'email':'text'} /></label>)}<label>Message<textarea /></label><button className="button" type="submit">Submit</button></form></div></div></main>; }
 
 function HairBeautyPage() { return <main className="hairbeauty-live-page audited-page"><div className="hairbeauty-live-header"><h1>Hair &amp; Beauty Bar</h1><p>Discover salon services, treatment options and styling support.</p></div><section className="hairbeauty-content audited-page-inner"><h2>Service Highlights</h2><ul><li>Wash, treat and style</li><li>Protective styling prep</li><li>Healthy scalp and moisture consultations</li><li>Retail product recommendations</li></ul><h2>Price Guide</h2><div className="price-table"><p>Basic wash and style: From R 250.00</p><p>Deep treatment and trim: From R 380.00</p><p>Protective style prep: From R 300.00</p></div><p>Final pricing may vary by hair length and service time.</p></section></main>; }
+
+function AdminDashboard({ products, orders, onAddProduct, onUpdateOrderStatus }) {
+  const [productForm, setProductForm] = useState({ name: '', price: '', category: 'Haircare', image: '' });
+  const [message, setMessage] = useState('');
+  const handleImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setProductForm((current) => ({ ...current, image: reader.result }));
+    reader.readAsDataURL(file);
+  };
+  const submitProduct = (event) => {
+    event.preventDefault();
+    if (!productForm.name || !productForm.price || !productForm.image) return;
+    onAddProduct({ ...productForm, id: `product-${Date.now()}` });
+    setProductForm({ name: '', price: '', category: 'Haircare', image: '' });
+    setMessage('Product uploaded successfully.');
+  };
+  return <main className="wp-admin-page"><div className="wp-admin-dashboard-wrap"><header className="wp-admin-dashboard-header"><div><h1>Nativechild Admin</h1><p className="wp-admin-api-source">Store management dashboard</p></div><a className="wp-admin-inline-button" href="/shop">View store</a></header>{message && <p className="wp-admin-status-message">{message}</p>}<section className="wp-admin-dashboard-card"><h2>Upload New Product</h2><form className="wp-admin-product-form" onSubmit={submitProduct}><label>Product name<input required value={productForm.name} onChange={(event) => setProductForm({ ...productForm, name: event.target.value })} /></label><div className="wp-admin-form-grid-two"><label>Price<input required value={productForm.price} placeholder="R 99.00" onChange={(event) => setProductForm({ ...productForm, price: event.target.value })} /></label><label>Category<select value={productForm.category} onChange={(event) => setProductForm({ ...productForm, category: event.target.value })}><option>Haircare</option><option>Bodycare</option><option>Combos</option><option>Accessories</option></select></label></div><label>Product photo<input required type="file" accept="image/*" onChange={handleImage} /></label>{productForm.image && <img className="wp-admin-image-preview" src={productForm.image} alt="Product preview" />}<button type="submit">Upload product</button></form></section><section className="wp-admin-dashboard-card"><h2>Products ({products.length})</h2><div className="wp-admin-recommendation-list">{products.slice(-8).map((product) => <article className="wp-admin-recommendation-card" key={product.id || product.name}><h3>{product.name}</h3><p>{product.price} · {product.category || 'Catalog product'}</p></article>)}</div></section><section className="wp-admin-dashboard-card"><h2>Orders ({orders.length})</h2>{orders.length === 0 ? <p className="wp-admin-empty-state">No orders have been placed yet.</p> : <div className="wp-admin-enquiry-list">{orders.map((order) => <article className="wp-admin-enquiry-card" key={order.id}><header><h3>{order.id}</h3><p>{order.customer.firstName} {order.customer.lastName} · {order.customer.email}</p></header><p className="wp-admin-enquiry-message">{order.items.map((item) => `${item.name} × ${item.quantity}`).join(', ')} · Total R {order.total.toFixed(2)}</p><p className="wp-admin-enquiry-message"><strong>Delivery address:</strong> {order.customer.address}, {order.customer.city}, {order.customer.postalCode}</p><label>Status<select value={order.status} onChange={(event) => onUpdateOrderStatus(order.id, event.target.value)}><option>Pending</option><option>Paid</option><option>Processing</option><option>Shipped</option><option>Completed</option><option>Cancelled</option></select></label></article>)}</div>}</section></div></main>;
+}
+
+function AdminOperationsDashboard({ products, orders, onAddProduct, onUpdateOrderStatus, onUpdateOrderDetails, onDeleteProduct }) {
+  const [adminSignedIn, setAdminSignedIn] = useState(() => window.localStorage.getItem('nativechild-admin-signed-out') !== 'true');
+  const [productForm, setProductForm] = useState({ name: '', price: '', category: 'Haircare', image: '' });
+  const [showCatalog, setShowCatalog] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [orderSearch, setOrderSearch] = useState('');
+  const [stockists, setStockists] = useState(() => JSON.parse(window.localStorage.getItem('nativechild-stockists') || '[]'));
+  const [stockistForm, setStockistForm] = useState({ name: '', address: '' });
+  useEffect(() => {
+    const header = document.querySelector('.wp-admin-dashboard-header');
+    if (!header || header.nextElementSibling?.classList.contains('wp-admin-menu-bar')) return undefined;
+    const menu = document.createElement('nav');
+    menu.className = 'wp-admin-menu-bar';
+    menu.setAttribute('aria-label', 'Admin menu');
+    menu.innerHTML = '<div class="wp-admin-menu-links"><a href="#admin-upload">Upload product</a><a href="#admin-products">Product catalog</a><a href="#admin-orders">Orders</a><a href="#admin-stockists">Stockist management</a><a href="#admin-payment">Payment and operations</a></div><div class="wp-admin-menu-account"><span>Signed in as <strong>itsupport@nativechild.co</strong></span><button type="button">Logout</button></div>';
+    menu.querySelector('button').addEventListener('click', () => { window.localStorage.setItem('nativechild-admin-signed-out', 'true'); setAdminSignedIn(false); });
+    header.after(menu);
+    document.querySelectorAll('.wp-admin-dashboard-card').forEach((card) => {
+      const heading = card.querySelector('h2')?.textContent?.toLowerCase() || '';
+      if (heading.includes('upload product')) card.id = 'admin-upload';
+      if (heading.includes('product catalog')) card.id = 'admin-products';
+      if (heading.includes('orders and customer')) card.id = 'admin-orders';
+      if (heading.includes('stockist management')) card.id = 'admin-stockists';
+      if (heading.includes('payment and operations')) card.id = 'admin-payment';
+      if (heading.includes('orders and customer')) card.querySelector('h2').textContent = 'Orders';
+    });
+    const sectionLinks = [...menu.querySelectorAll('a[href^="#admin-"]')];
+    sectionLinks.forEach((link) => {
+      const section = document.getElementById(link.getAttribute('href').slice(1));
+      if (!section) return;
+      const isOrders = section.id === 'admin-orders';
+      section.hidden = !isOrders;
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        section.hidden = !section.hidden;
+        if (!section.hidden) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+    document.querySelectorAll('.wp-admin-metrics-grid article').forEach((metric) => {
+      const label = metric.querySelector('h3')?.textContent?.toLowerCase() || '';
+      const targetId = label.includes('total products') ? 'admin-products' : label.includes('stockists') ? 'admin-stockists' : label.includes('orders') ? 'admin-orders' : null;
+      if (!targetId) return;
+      metric.tabIndex = 0;
+      const reveal = () => { const target = document.getElementById(targetId); if (target) { target.hidden = false; target.scrollIntoView({ behavior: 'smooth', block: 'start' }); } };
+      metric.addEventListener('click', reveal);
+      metric.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); reveal(); } });
+    });
+    document.querySelectorAll('#admin-orders .wp-admin-enquiry-card').forEach((card) => {
+      const order = orders.find((item) => item.id === card.querySelector('h3')?.textContent);
+      if (!order || card.querySelector('.admin-order-editor')) return;
+      const editor = document.createElement('div');
+      editor.className = 'admin-order-editor';
+      const fields = [['email', 'Email', order.customer.email], ['phone', 'Cellphone', order.customer.phone], ['address', 'Address', order.customer.address], ['city', 'City', order.customer.city], ['postalCode', 'Postal code', order.customer.postalCode]];
+      fields.forEach(([key, label, value]) => { const wrapper = document.createElement('label'); wrapper.textContent = label; const input = document.createElement('input'); input.name = key; input.value = value || ''; wrapper.appendChild(input); editor.appendChild(wrapper); });
+      const save = document.createElement('button'); save.type = 'button'; save.className = 'wp-admin-inline-button'; save.textContent = 'Update customer details'; save.addEventListener('click', () => { const details = Object.fromEntries(fields.map(([key]) => [key, editor.querySelector(`[name="${key}"]`).value])); onUpdateOrderDetails(order.id, details); save.textContent = 'Updated'; window.setTimeout(() => { save.textContent = 'Update customer details'; }, 1600); });
+      editor.appendChild(save);
+      card.appendChild(editor);
+      card.addEventListener('click', (event) => {
+        if (event.target.closest('input, select, button, a')) return;
+        document.querySelectorAll('.admin-order-drawer').forEach((drawer) => drawer.remove());
+        const drawer = document.createElement('aside');
+        drawer.className = 'admin-order-drawer';
+        drawer.innerHTML = `<div class="admin-order-drawer-backdrop"></div><section class="admin-order-drawer-panel"><button class="admin-order-drawer-close" type="button" aria-label="Close order details">×</button><p class="admin-drawer-kicker">ORDER DETAILS</p><h2>${order.id}</h2><div class="admin-order-drawer-grid"><div><span>Customer</span><strong>${order.customer.firstName} ${order.customer.lastName}</strong></div><div><span>Status</span><strong>${order.status}</strong></div><div><span>Email</span><strong>${order.customer.email}</strong></div><div><span>Cellphone</span><strong>${order.customer.phone}</strong></div><div class="admin-drawer-wide"><span>Delivery address</span><strong>${order.customer.address}, ${order.customer.city}, ${order.customer.postalCode}</strong></div><div class="admin-drawer-wide"><span>Products</span><strong>${order.items.map((item) => `${item.name} × ${item.quantity}`).join('<br />')}</strong></div><div class="admin-drawer-wide admin-drawer-total"><span>Total</span><strong>R ${order.total.toFixed(2)}</strong></div></div><form class="admin-drawer-form"><h3>Update customer details</h3><label>Email<input name="email" value="${order.customer.email || ''}" /></label><label>Cellphone<input name="phone" value="${order.customer.phone || ''}" /></label><label>Address<input name="address" value="${order.customer.address || ''}" /></label><div class="admin-drawer-two"><label>City<input name="city" value="${order.customer.city || ''}" /></label><label>Postal code<input name="postalCode" value="${order.customer.postalCode || ''}" /></label></div><button class="wp-admin-inline-button" type="submit">Update customer details</button></form></section></aside>`;
+        document.body.appendChild(drawer);
+        const closeDrawer = () => drawer.remove();
+        drawer.querySelector('.admin-order-drawer-close').addEventListener('click', closeDrawer);
+        drawer.querySelector('.admin-order-drawer-backdrop').addEventListener('click', closeDrawer);
+        drawer.querySelector('form').addEventListener('submit', (submitEvent) => { submitEvent.preventDefault(); const form = new FormData(submitEvent.currentTarget); onUpdateOrderDetails(order.id, Object.fromEntries(form.entries())); closeDrawer(); });
+      });
+    });
+    return () => menu.remove();
+  }, []);
+  if (!adminSignedIn) return <main className="wp-admin-page"><div className="wp-admin-login-card"><p className="eyebrow">Nativechild Admin</p><h1>Signed out</h1><p>Your admin session has ended.</p><button className="wp-admin-inline-button" type="button" onClick={() => { window.localStorage.removeItem('nativechild-admin-signed-out'); setAdminSignedIn(true); }}>Sign in again</button></div></main>;
+  const [paymentStatus, setPaymentStatus] = useState('Not checked');
+  const uploadedProducts = products.filter((product) => product.id);
+  const filteredProducts = products.filter((product) => product.name.toLowerCase().includes(productSearch.toLowerCase()));
+  const filteredOrders = orders.filter((order) => `${order.id} ${order.customer.firstName} ${order.customer.lastName} ${order.customer.email}`.toLowerCase().includes(orderSearch.toLowerCase()));
+  const readImage = (event) => { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = () => setProductForm((current) => ({ ...current, image: reader.result })); reader.readAsDataURL(file); };
+  const submitProduct = (event) => { event.preventDefault(); if (!productForm.name || !productForm.price || !productForm.image) return; onAddProduct({ ...productForm, id: `product-${Date.now()}` }); setProductForm({ name: '', price: '', category: 'Haircare', image: '' }); };
+  const addStockist = (event) => { event.preventDefault(); if (!stockistForm.name || !stockistForm.address) return; const next = [...stockists, { ...stockistForm, id: `stockist-${Date.now()}` }]; setStockists(next); window.localStorage.setItem('nativechild-stockists', JSON.stringify(next)); setStockistForm({ name: '', address: '' }); };
+  const checkPayment = async () => { try { const response = await fetch('/api/health'); const result = await response.json(); setPaymentStatus(result.ok ? `PayFast API online (${result.sandbox ? 'sandbox' : 'live'})` : 'PayFast API unavailable'); } catch { setPaymentStatus('PayFast API unavailable'); } };
+  const exportOrders = () => { const file = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(file); link.download = 'nativechild-orders.json'; link.click(); URL.revokeObjectURL(link.href); };
+  return <main className="wp-admin-page"><div className="wp-admin-dashboard-wrap"><header className="wp-admin-dashboard-header"><div><h1>Nativechild Admin</h1><p className="wp-admin-api-source">Store operations dashboard</p></div><a className="wp-admin-inline-button" href="/shop">View store</a></header><section className="wp-admin-metrics-grid"><article><h3>Total products</h3><p>{products.length}</p></article><article><h3>Orders</h3><p>{orders.length}</p></article><article><h3>Pending orders</h3><p>{orders.filter((order) => order.status === 'Pending').length}</p></article><article><h3>Stockists</h3><p>{stockists.length}</p></article></section><section className="wp-admin-dashboard-card"><div className="wp-admin-card-heading-row"><h2>Payment and operations</h2><button className="wp-admin-inline-button" type="button" onClick={checkPayment}>Check PayFast</button></div><p className="wp-admin-status-message">{paymentStatus}</p><div className="wp-admin-dashboard-links"><a href="/shop">Manage storefront</a><a href="/where-to-buy">Review stockists page</a><a href="/checkout">Test checkout</a><a href="/frequently-asked-questions">Manage support content</a></div></section><section className="wp-admin-dashboard-card"><h2>Upload product</h2><form className="wp-admin-product-form" onSubmit={submitProduct}><label>Product name<input required value={productForm.name} onChange={(event) => setProductForm({ ...productForm, name: event.target.value })} /></label><div className="wp-admin-form-grid-two"><label>Price<input required placeholder="R 99.00" value={productForm.price} onChange={(event) => setProductForm({ ...productForm, price: event.target.value })} /></label><label>Category<select value={productForm.category} onChange={(event) => setProductForm({ ...productForm, category: event.target.value })}><option>Haircare</option><option>Bodycare</option><option>Combos</option><option>Accessories</option></select></label></div><label>Photo<input required type="file" accept="image/*" onChange={readImage} /></label>{productForm.image && <img className="wp-admin-image-preview" src={productForm.image} alt="Preview" />}<button type="submit">Save product</button></form></section><section className="wp-admin-dashboard-card"><div className="wp-admin-card-heading-row"><h2>Product catalog</h2><button className="wp-admin-inline-button" type="button" aria-expanded={showCatalog} onClick={() => setShowCatalog((visible) => !visible)}>{showCatalog ? 'Hide catalog' : 'Show catalog'}</button>{showCatalog && <input className="wp-admin-search-input" placeholder="Search products" value={productSearch} onChange={(event) => setProductSearch(event.target.value)} />}</div>{showCatalog && <div className="wp-admin-recommendation-list">{filteredProducts.map((product) => <article className="wp-admin-recommendation-card" key={product.id || product.name}><h3>{product.name}</h3><p>{product.price} · {product.category || 'Catalog product'}</p>{product.id && <button className="wp-admin-inline-button" type="button" onClick={() => onDeleteProduct(product.id)}>Remove uploaded product</button>}</article>)}</div>}</section><section className="wp-admin-dashboard-card"><div className="wp-admin-card-heading-row"><h2>Orders and customer addresses</h2><input className="wp-admin-search-input" placeholder="Search orders or customers" value={orderSearch} onChange={(event) => setOrderSearch(event.target.value)} /><button className="wp-admin-inline-button" type="button" onClick={exportOrders}>Export JSON</button></div>{filteredOrders.length === 0 ? <p className="wp-admin-empty-state">No matching orders.</p> : <div className="wp-admin-enquiry-list">{filteredOrders.map((order) => <article className="wp-admin-enquiry-card" key={order.id}><h3>{order.id}</h3><p>{order.customer.firstName} {order.customer.lastName} · {order.customer.email} · {order.customer.phone}</p><p><strong>Address:</strong> {order.customer.address}, {order.customer.city}, {order.customer.postalCode}</p><p>{order.items.map((item) => `${item.name} × ${item.quantity}`).join(', ')} · Total R {order.total.toFixed(2)}</p><label>Status<select value={order.status} onChange={(event) => onUpdateOrderStatus(order.id, event.target.value)}>{['Pending', 'Paid', 'Processing', 'Shipped', 'Completed', 'Cancelled'].map((status) => <option key={status}>{status}</option>)}</select></label></article>)}</div>}</section><section className="wp-admin-dashboard-card"><h2>Stockist management</h2><form className="wp-admin-form-grid-two" onSubmit={addStockist}><input required placeholder="Stockist name" value={stockistForm.name} onChange={(event) => setStockistForm({ ...stockistForm, name: event.target.value })} /><input required placeholder="Address" value={stockistForm.address} onChange={(event) => setStockistForm({ ...stockistForm, address: event.target.value })} /><button className="wp-admin-inline-button" type="submit">Add stockist</button></form><div className="wp-admin-recommendation-list">{stockists.map((stockist) => <article className="wp-admin-recommendation-card" key={stockist.id}><h3>{stockist.name}</h3><p>{stockist.address}</p></article>)}</div></section></div></main>;
+}
 
 const routePages = {
   '/about-us': { title: 'About Nativechild', intro: 'Naturally made haircare and bodycare created with Afro, kinky, coily and curly hair in mind.', sections: [['Our Story', 'Nativechild develops and locally manufactures natural-based products that help people care for their hair, skin and sense of self.'], ['Made With Care', 'Our formulas are plant based, kind to nature and designed to make everyday care feel simple, joyful and effective.']] },
@@ -751,6 +857,8 @@ function App() {
   const [cart, setCart] = useState(() => {
     try { return JSON.parse(window.localStorage.getItem('nativechild-cart') || '[]'); } catch { return []; }
   });
+  const [customProducts, setCustomProducts] = useState(() => JSON.parse(window.localStorage.getItem('nativechild-custom-products') || '[]'));
+  const [orders, setOrders] = useState(() => JSON.parse(window.localStorage.getItem('nativechild-orders') || '[]'));
   const addToCart = (product) => {
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.name === product.name);
@@ -771,9 +879,19 @@ function App() {
       return nextCart;
     });
   };
-  const renderPage = (page) => <HomePage pageContent={page} cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} />;
+  const createOrder = (orderDetails) => {
+    const order = { ...orderDetails, id: `NC-${Date.now()}`, status: 'Pending', createdAt: new Date().toISOString() };
+    setOrders((current) => { const next = [order, ...current]; window.localStorage.setItem('nativechild-orders', JSON.stringify(next)); return next; });
+    return order;
+  };
+  const addProduct = (product) => setCustomProducts((current) => { const next = [...current, product]; window.localStorage.setItem('nativechild-custom-products', JSON.stringify(next)); return next; });
+  const deleteProduct = (id) => setCustomProducts((current) => { const next = current.filter((product) => product.id !== id); window.localStorage.setItem('nativechild-custom-products', JSON.stringify(next)); return next; });
+  const updateOrderStatus = (id, status) => setOrders((current) => { const next = current.map((order) => order.id === id ? { ...order, status } : order); window.localStorage.setItem('nativechild-orders', JSON.stringify(next)); return next; });
+  const updateOrderDetails = (id, details) => setOrders((current) => { const next = current.map((order) => order.id === id ? { ...order, customer: { ...order.customer, ...details } } : order); window.localStorage.setItem('nativechild-orders', JSON.stringify(next)); return next; });
+  const renderPage = (page) => <HomePage pageContent={page} cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} onCreateOrder={createOrder} />;
   const categoryMatch = pathname.match(/^\/products\/(haircare|bodycare|combos|accessories)$/);
-  if (pathname === '/' || pathname === '') return <HomePage cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} />;
+  if (pathname === '/' || pathname === '') return <HomePage cart={cart} onAddToCart={addToCart} onUpdateQuantity={updateQuantity} onCreateOrder={createOrder} />;
+  if (pathname === '/admin') return <AdminOperationsDashboard products={[...shopProducts, ...customProducts]} orders={orders} onAddProduct={addProduct} onDeleteProduct={deleteProduct} onUpdateOrderStatus={updateOrderStatus} onUpdateOrderDetails={updateOrderDetails} />;
   if (pathname === '/kurl-care-guide') return renderPage(<KurlCarePage />);
   if (pathname === '/where-to-buy') return renderPage(<WhereToBuyPage />);
   if (pathname === '/videos') return renderPage(<VideosPage />);
@@ -791,7 +909,7 @@ function App() {
   if (pathname === '/shop' || categoryMatch) {
     const category = categoryMatch?.[1];
     const title = category ? `${category[0].toUpperCase()}${category.slice(1)} Products` : 'Shop Nativechild';
-    return renderPage(<RoutePage categoryPage={Boolean(category)} shopPage={pathname === '/shop'} title={title} intro={category === 'haircare' ? 'Our products are designed to assist hair growth, restore moisture, reduce breakage and provide the nourishment your hair needs to thrive.' : 'Explore natural-based haircare and bodycare made with care for you and the world around you.'} sections={[]} products={pathname === '/shop' ? shopProducts : category === 'haircare' ? haircareProducts : category === 'bodycare' ? products.slice(2) : products} />);
+    return renderPage(<RoutePage categoryPage={Boolean(category)} shopPage={pathname === '/shop'} title={title} intro={category === 'haircare' ? 'Our products are designed to assist hair growth, restore moisture, reduce breakage and provide the nourishment your hair needs to thrive.' : 'Explore natural-based haircare and bodycare made with care for you and the world around you.'} sections={[]} products={pathname === '/shop' ? [...shopProducts, ...customProducts] : category === 'haircare' ? haircareProducts : category === 'bodycare' ? products.slice(2) : products} />);
   }
   const page = routePages[pathname] || { title: 'Nativechild', intro: 'Natural-based haircare and bodycare for your everyday ritual.', sections: [['Page Not Found', 'The page you requested could not be found. Return home to continue exploring Nativechild.']] };
   return renderPage(<RoutePage {...page} />);
